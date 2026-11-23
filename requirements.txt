@@ -1,0 +1,7 @@
+uproot
+awkward
+hist
+pandas
+pyarrow
+matplotlib
+jupyterlab
