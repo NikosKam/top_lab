@@ -9,7 +9,7 @@ RECO_HISTOGRAMS = {
     "n_jets":           (10, 0, 10, r"$N_{good jets}$"),
     "n_bjets":          (10, 0, 10, r"$N_{b-tagged jets}$"),
     "met":              (30, 5, 305, r"reco. $E_T^{miss}$ [GeV]"),
-    "mu_pt":            (30, 0, 300, r"reco. muon $p_T$ [GeV] (before cuts)"),
+    "mu_pt":            (30, 0, 300, r"reco. muon $p_T$ [GeV] (after trigger only)"),
     "mu_pt_after_cuts": (30, 0, 300, r"reco. muon $p_T$ [GeV] (after all cuts)"),
     "mW":               (20, 40, 120, r"reconstructed $m_W$ [GeV]"),
     "mtop":             (20, 100, 300, r"reconstructed $m_{top}$ [GeV]"),
@@ -47,8 +47,10 @@ def make_hist(nbins, lo, hi, label=""):
     return Histogram(hist.axis.Regular(nbins, lo, hi, label=label), storage=hist.storage.Weight())
 
 
-def book_reco_histograms():
-    return {name: make_hist(*spec) for name, spec in RECO_HISTOGRAMS.items()}
+def book_reco_histograms(*names):
+    """Book the histograms with these names from RECO_HISTOGRAMS (all of them if no names are given)."""
+    names = names or RECO_HISTOGRAMS.keys()
+    return {name: make_hist(*RECO_HISTOGRAMS[name]) for name in names}
 
 
 def fill_one(h, x, weight=1.0):
