@@ -61,25 +61,17 @@ code(r"""
 # Setup for Google Colab. When you run the notebook on your own computer, this cell does nothing.
 import os, sys
 if "google.colab" in sys.modules:
-    REPO_URL = "https://github.com/YOUR-ACCOUNT/YOUR-REPO.git"   # instructor: code + notebooks
-    DATA_URL = "https://YOUR-SHARE-LINK/download"                # instructor: zip of the ROOT files
-    import subprocess, urllib.request, zipfile
+    import subprocess
     os.chdir("/content")
     if not os.path.exists("lab"):
-        subprocess.run(["git", "clone", "-q", REPO_URL, "lab"], check=True)
+        print("downloading the lab code and data (once per Colab session) ...")
+        subprocess.run(["git", "clone", "-q", "--depth", "1",
+                        "https://github.com/NikosKam/top_lab.git", "lab"], check=True)
     os.chdir("/content/lab")
     subprocess.run([sys.executable, "-m", "pip", "install", "-q", "uproot", "awkward", "hist"], check=True)
-    if not os.path.exists("files"):
-        print("downloading the data (once per Colab session) ...")
-        urllib.request.urlretrieve(DATA_URL, "files.zip")
-        with zipfile.ZipFile("files.zip") as z:
-            z.extractall("files")
-        os.remove("files.zip")
-    from pathlib import Path
-    data_dir = next(Path("files").rglob("data.root")).parent   # works whether or not the zip has a folder inside
-    os.environ["LAB_DATA_DIR"] = str(data_dir.resolve())
+    os.environ["LAB_DATA_DIR"] = "/content/lab/files"
     sys.path.insert(0, "/content/lab")
-    print("Colab setup done. Data files:", sorted(p.name for p in data_dir.glob("*.root")))
+    print("Colab setup done.")
 """)
 
 code(r"""
@@ -153,15 +145,11 @@ for event in tt:                           # go through every simulated event, o
 
     if pdgid == 15:
         N_tau += 1
-    # elif pdgid == 13:
-    #     ...   # count the muon: N_mu += 1
-    # elif pdgid == 11:
-    #     ...   # count the electron: N_e += 1
+    # elif ...  # <- you will add code here to count muons and electrons
 
 N = len(tt)
 print(f"fraction of events with a generated tau:      {N_tau / N:.3f}")
-print(f"fraction of events with a generated muon:      {N_mu / N:.3f}")
-print(f"fraction of events with a generated electron:  {N_e / N:.3f}")
+# print(...)  # <- you will add code here to print the fractions for muons and electrons
 """)
 
 md(r"""
@@ -181,15 +169,11 @@ for event in tt:
 
     if pdgid == 15:
         fill_one(h_tau_pt, lepton_pt)
-    # elif pdgid == 13:
-    #     ...   # fill_one(h_mu_pt, lepton_pt)
-    # elif pdgid == 11:
-    #     ...   # fill_one(h_e_pt, lepton_pt)
+    # elif ...  # <- you will add code here to fill the muon and electron histograms
 
 fig, ax = plt.subplots()
 draw(h_tau_pt, ax, label="tau")
-draw(h_mu_pt, ax, label="mu")
-draw(h_e_pt, ax, label="e")
+# draw(...)   <- you will add code here to draw the muon and electron histograms
 """)
 
 md(r"""
@@ -222,7 +206,7 @@ for event in tt:
 
 fig, ax = plt.subplots()
 draw(h_mqq, ax, label="hadronic W")
-draw(h_mln, ax, label="leptonic W")
+# draw(...)  <- you will add code here to draw the leptonic W histogram
 """)
 
 md(r"""
@@ -233,9 +217,9 @@ fill its mass and $p_T$. The hadronic side is done for you; do the same for the 
 
 code(r"""
 h_mhadtop = make_hist(30, 165, 180, r"Generated $m_{top}$ [GeV]")
-h_pthadtop = make_hist(350, 0, 350, r"Generated $p_{T,top}$ [GeV]")
+h_pthadtop = make_hist(100, 0.1, 350, r"Generated $p_{T,top}$ [GeV]")
 h_mleptop = make_hist(30, 165, 180, r"Generated $m_{top}$ [GeV]")
-h_ptleptop = make_hist(350, 0, 350, r"Generated $p_{T,top}$ [GeV]")
+h_ptleptop = make_hist(100, 0.1, 350, r"Generated $p_{T,top}$ [GeV]")
 
 for event in tt:
     had_W = event.truth["had_q"] + event.truth["had_qbar"]
@@ -278,7 +262,7 @@ fig.tight_layout()
 md(r"""
 ## Part 2: reconstructed events, data vs. simulation
 
-### Task 5: event selection and cross-section measurement
+### Task 5: event selection
 Selection criteria (defined once, used everywhere):
 """)
 
@@ -293,13 +277,78 @@ LUMI = 50.0             # integrated luminosity -- CHECK THE UNIT (pb^-1?) befor
 """)
 
 md(r"""
-`analyze(sample)` below goes through one sample event by event (just like the original ROOT script's
-`Process()` method did). For each event it:
+#### Step 1: good muons and jets
+`good_objects(event)` decides which muons and jets in one event are good enough to use, and splits the good
+jets into b-tagged and non-b-tagged ("light") jets. Nothing to change here -- read it to see how each
+requirement is applied.
+""")
 
-1. builds the lists of "good" muons and jets, and splits the good jets into b-tagged and non-b-tagged,
-2. fills a few "before any cut" histograms,
-3. applies the cuts one at a time, counting how many (weighted) events survive each one,
-4. for events that survive every cut, reconstructs the W boson and the top quark (Task 6).
+code(r"""
+def good_objects(event):
+    # good muons: pT above threshold AND isolated
+    good_muons = []
+    for mu in event.muons:
+        if mu.pt > MU_PT_CUT and mu.is_isolated(MU_RELISO_CUT):
+            good_muons.append(mu)
+
+    # good jets: pT, |eta|, and jet-quality requirements
+    good_jets = []
+    for jet in event.jets:
+        if jet.pt > JET_PT_CUT and abs(jet.eta) < JET_ETA_CUT and jet.jetid:
+            good_jets.append(jet)
+
+    # split the good jets into b-tagged and non-b-tagged ("light") jets
+    bjets = []
+    light_jets = []
+    for jet in good_jets:
+        if jet.is_btagged(BTAG_CUT):
+            bjets.append(jet)
+        else:
+            light_jets.append(jet)
+
+    return good_muons, good_jets, bjets, light_jets
+""")
+
+md(r"""
+#### Step 2: distributions before the selection
+Before choosing cuts, look at the samples. The only requirement here is the **trigger**: the data were only
+recorded when the muon trigger fired, but the simulated $t\bar t$ sample also contains events where it did
+not -- comparing them without the trigger would not be fair.
+
+**Question**: in which of these distributions does $t\bar t$ (red) look most different from the backgrounds?
+Those are the variables worth cutting on.
+""")
+
+code(r"""
+def before_cuts(sample):
+    h = book_reco_histograms("n_muons", "n_iso_mu", "n_jets", "n_bjets", "met", "mu_pt")
+    for event in sample:
+        if not event.trigger:
+            continue
+        good_muons, good_jets, bjets, light_jets = good_objects(event)
+        weight = event.weight
+
+        fill_one(h["n_muons"], len(event.muons), weight)
+        fill_one(h["n_iso_mu"], len(good_muons), weight)
+        fill_one(h["n_jets"], len(good_jets), weight)
+        fill_one(h["n_bjets"], len(bjets), weight)
+        fill_one(h["met"], event.met_pt, weight)
+        if len(good_muons) >= 1:
+            fill_one(h["mu_pt"], good_muons[0].pt, weight)
+    return {"hists": h}
+
+
+before = {}
+for tag, sample in events.items():
+    before[tag] = before_cuts(sample)
+plot_all(before, pdf="before_cuts.pdf")
+""")
+
+md(r"""
+#### Step 3: apply the cuts
+`analyze(sample)` applies the cuts one at a time and counts how many (weighted) events survive each one.
+For the events that survive every cut it reconstructs the W boson and the top quark with the function
+`reconstruct_top()` that you will write in Task 6 (next cell).
 
 **Your task in this cell**: the "4 good jets" and "2 b-jets" cuts are missing -- add them, following the
 same pattern as the two cuts already there (`if ...: continue`, then add the event's weight to the
@@ -308,9 +357,8 @@ matching counter).
 
 code(r"""
 def analyze(sample):
-    h = book_reco_histograms()
+    h = book_reco_histograms("mu_pt_after_cuts", "mW", "mtop", "pt_top")
 
-    n_total = 0            # number of events, unweighted
     w_initial = 0.0         # events surviving each cut, WEIGHTED (so backgrounds compare fairly)
     w_trigger = 0.0
     w_1muon = 0.0
@@ -318,41 +366,11 @@ def analyze(sample):
     w_2bjets = 0.0
 
     for event in sample:                        # go through every event in this sample
-        n_total += 1
         weight = event.weight
         w_initial += weight
+        good_muons, good_jets, bjets, light_jets = good_objects(event)
 
-        # --- build the list of good muons: pT above threshold AND isolated
-        good_muons = []
-        for mu in event.muons:
-            if mu.pt > MU_PT_CUT and mu.is_isolated(MU_RELISO_CUT):
-                good_muons.append(mu)
-
-        # --- build the list of good jets: pT, |eta|, and jet-quality requirements
-        good_jets = []
-        for jet in event.jets:
-            if jet.pt > JET_PT_CUT and abs(jet.eta) < JET_ETA_CUT and jet.jetid:
-                good_jets.append(jet)
-
-        # split the good jets into b-tagged and non-b-tagged ("light") jets
-        bjets = []
-        light_jets = []
-        for jet in good_jets:
-            if jet.is_btagged(BTAG_CUT):
-                bjets.append(jet)
-            else:
-                light_jets.append(jet)
-
-        # --- histograms filled BEFORE any selection cut
-        fill_one(h["n_muons"], len(event.muons), weight)
-        fill_one(h["n_iso_mu"], len(good_muons), weight)
-        fill_one(h["n_jets"], len(good_jets), weight)
-        fill_one(h["n_bjets"], len(bjets), weight)
-        fill_one(h["met"], event.met_pt, weight)
-        if len(good_muons) >= 1:
-            fill_one(h["mu_pt"], good_muons[0].pt, weight)
-
-        # --- apply the cuts, one at a time. `continue` skips the rest of the loop body,
+        # --- the cuts, one at a time. `continue` skips the rest of the loop body,
         # so an event that fails a cut never reaches the ones after it.
         if not event.trigger:
             continue
@@ -372,19 +390,7 @@ def analyze(sample):
         if len(light_jets) < 2 or len(bjets) < 1:
             continue
 
-        # === Task 6 happens here: reconstruct the W boson and the top quark ===
-        # TODO (W boson): two nested for-loops over light_jets (i, then j > i), compute
-        #   candidate = light_jets[i] + light_jets[j]
-        # and keep whichever pair's mass is closest to M_W in `best_W`.
-        #
-        # TODO (top quark): one for-loop over bjets, compute
-        #   candidate = best_W + bjet
-        # and keep whichever is closest to M_TOP in `best_top`.
-        #
-        # placeholders so the rest of the notebook still runs before you fill this in:
-        best_W = light_jets[0] + light_jets[1]
-        best_top = best_W + bjets[0]
-
+        best_W, best_top = reconstruct_top(light_jets, bjets)     # Task 6, next cell
         fill_one(h["mW"], best_W.mass, weight)
         fill_one(h["mtop"], best_top.mass, weight)
         fill_one(h["pt_top"], best_top.pt, weight)
@@ -399,6 +405,35 @@ def analyze(sample):
     return {"hists": h, "cutflow": cutflow, "final_weighted": w_2bjets}
 """)
 
+md(r"""
+### Task 6: reconstruct the W boson and the top quark
+`reconstruct_top(light_jets, bjets)` gets the non-b-tagged jets and the b-tagged jets of **one** selected
+event, and must return the best W boson candidate and the best top quark candidate:
+
+* **W boson**: try every pair of light jets (two nested `for` loops: `i`, then `j > i`), add their
+  four-vectors, and keep the pair whose mass is closest to `M_W`.
+* **top quark**: add that W to each b-jet in turn, and keep the combination whose mass is closest to `M_TOP`.
+
+The placeholder below just takes the first jets, so the rest of the notebook already runs. Replace it,
+then run this cell **and** the next one again.
+""")
+
+code(r"""
+def reconstruct_top(light_jets, bjets):
+    # TODO (W boson): two nested for-loops over light_jets (i, then j > i), compute
+    #   candidate = light_jets[i] + light_jets[j]
+    # and keep whichever pair's mass is closest to M_W in `best_W`.
+    #
+    # TODO (top quark): one for-loop over bjets, compute
+    #   candidate = best_W + bjet
+    # and keep whichever is closest to M_TOP in `best_top`.
+    #
+    # placeholder so the rest of the notebook still runs before you fill this in:
+    best_W = light_jets[0] + light_jets[1]
+    best_top = best_W + bjets[0]
+    return best_W, best_top
+""")
+
 code(r"""
 results = {}
 for tag, sample in events.items():
@@ -410,7 +445,8 @@ table.round(1)
 """)
 
 md(r"""
-**Cross section**: $\sigma = \dfrac{N_{data} - N_{bkg}}{\mathcal{L}\,A\,C}$ with the acceptance
+### Task 7: cross-section measurement
+$\sigma = \dfrac{N_{data} - N_{bkg}}{\mathcal{L}\,A\,C}$ with the acceptance
 $A = N^{fid}_{truth}/N^{gen}_{truth}$ and the efficiency $C = N^{reco}/N^{fid}_{truth}$.
 
 The *fiducial region* (truth level): exactly one generated muon with $p_T>25$ GeV, and both b quarks with
@@ -445,18 +481,19 @@ print(f"sigma = {sigma:.1f}   (units follow from the luminosity unit)")
 """)
 
 md(r"""
-### Plots: data vs. simulation
-Compare `mu_pt` (before cuts) to `mu_pt_after_cuts`. **Which cut has the largest impact on the background?**
+### Plots: data vs. simulation after all cuts
+Compare the muon $p_T$ after all cuts with the one after the trigger only (Step 2). **Which cut has the
+largest impact on the background?** (The cutflow table above tells you cut by cut.)
 """)
 
 code(r"""
-plot_all(results, pdf="results.pdf")
+plot_all(results, pdf="after_cuts.pdf")
 """)
 
 md(r"""
 ### Extensions
-* Add a new histogram (a line in `RECO_HISTOGRAMS` in `helpers.py`, and a `fill_one(...)` call in `analyze`)
-  and compare signal vs. background shapes.
+* Add a new histogram: a line in `RECO_HISTOGRAMS` in `helpers.py`, its name in the `book_reco_histograms(...)`
+  call of `before_cuts` or `analyze`, and a `fill_one(...)` call there. Compare signal vs. background shapes.
 * Change the b-tag threshold or the jet $|\eta|$ cut. How do $N_{bkg}$ and $\sigma$ change? (Re-running
   takes only a few seconds.)
 * Estimate the statistical uncertainty on $\sigma$.
