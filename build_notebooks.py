@@ -30,27 +30,18 @@ top quark, and measure the $t\bar t$ cross section.
 
 Because every event can have a different number of muons/jets, you will go through the events **one at a
 time with a `for` loop**, and go through the muons/jets of each event with a (possibly nested) `for` loop
-too -- exactly like the original ROOT-based script did. For example:
+too. For example:
 ```python
 for event in tt:              # loop over every event in the sample
     for jet in event.jets:    # loop over every jet in this one event
         print(jet.pt)         # transverse momentum of this jet, in GeV
 ```
-A jet or a muon has `.pt`, `.eta`, `.phi`, `.mass` (just like the old `MyJet`/`MyMuon` classes), and two of
+A jet or a muon has `.pt`, `.eta`, `.phi`, `.mass`, and two of
 them can simply be **added** with `+` to get the four-momentum of the particle they came from, e.g.
 `W_candidate = jet1 + jet2`.
 
 The supporting code (reading the ROOT files, caching, plotting) lives in `samples.py`, `helpers.py` and
 `plotting.py`. You do not need to read it, but you are welcome to.
-
-**Before you open this notebook for the first time**, from a terminal in this folder:
-```bash
-./setup.sh   # once -- installs the needed packages into a local, private environment
-./run.sh     # every time -- starts Jupyter
-```
-No admin/root rights are needed. If `setup.sh` prints a message about a fallback install,
-that's expected on some machines and nothing to worry about -- just use `./run.sh` as normal.
-If you open the notebook in VS Code instead, select the `.venv` kernel (top right: "Select Kernel").
 
 **On Google Colab** (nothing to install): first click **File -> Save a copy in Drive** and work in
 that copy -- otherwise your work is lost when you close the tab. Then run the setup cell below. Colab
