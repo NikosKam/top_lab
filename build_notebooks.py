@@ -1,12 +1,9 @@
 """
-Single source of truth for the lab notebook.
+Builds the student notebook for the lab:
 
     python build_notebooks.py
 
-writes  lab_solutions.ipynb  (instructor version)  and  lab_student.ipynb  (solutions removed).
-Inside a code cell, everything between  ### BEGIN SOLUTION  and  ### END SOLUTION  is the solution.
-An optional  ### STUB  line splits it: text after ### STUB is what the student version gets instead
-(default: "# YOUR CODE HERE"). Stubs are written so that "Run All" still works on the student version.
+writes  lab_student.ipynb. (Solution-free copy: the instructor version is kept separately.)
 """
 import json
 import re
@@ -156,17 +153,10 @@ for event in tt:                           # go through every simulated event, o
 
     if pdgid == 15:
         N_tau += 1
-### BEGIN SOLUTION
-    elif pdgid == 13:
-        N_mu += 1
-    elif pdgid == 11:
-        N_e += 1
-### STUB
     # elif pdgid == 13:
     #     ...   # count the muon: N_mu += 1
     # elif pdgid == 11:
     #     ...   # count the electron: N_e += 1
-### END SOLUTION
 
 N = len(tt)
 print(f"fraction of events with a generated tau:      {N_tau / N:.3f}")
@@ -191,17 +181,10 @@ for event in tt:
 
     if pdgid == 15:
         fill_one(h_tau_pt, lepton_pt)
-### BEGIN SOLUTION
-    elif pdgid == 13:
-        fill_one(h_mu_pt, lepton_pt)
-    elif pdgid == 11:
-        fill_one(h_e_pt, lepton_pt)
-### STUB
     # elif pdgid == 13:
     #     ...   # fill_one(h_mu_pt, lepton_pt)
     # elif pdgid == 11:
     #     ...   # fill_one(h_e_pt, lepton_pt)
-### END SOLUTION
 
 fig, ax = plt.subplots()
 draw(h_tau_pt, ax, label="tau")
@@ -232,17 +215,10 @@ for event in tt:
     had_W = had_q + had_qbar               # adding two four-vectors reconstructs the W they came from
     fill_one(h_mqq, had_W.mass)
 
-### BEGIN SOLUTION
-    lepton = event.truth["lepton"]
-    neutrino = event.truth["neutrino"]
-    lep_W = lepton + neutrino
-    fill_one(h_mln, lep_W.mass)
-### STUB
     # lepton = event.truth["lepton"]
     # neutrino = event.truth["neutrino"]
     # lep_W = ...          # add the lepton and neutrino four-vectors
     # fill_one(h_mln, lep_W.mass)
-### END SOLUTION
 
 fig, ax = plt.subplots()
 draw(h_mqq, ax, label="hadronic W")
@@ -267,17 +243,10 @@ for event in tt:
     fill_one(h_mhadtop, had_top.mass)
     fill_one(h_pthadtop, had_top.pt)
 
-### BEGIN SOLUTION
-    lep_W = event.truth["lepton"] + event.truth["neutrino"]
-    lep_top = lep_W + event.truth["lep_b"]
-    fill_one(h_mleptop, lep_top.mass)
-    fill_one(h_ptleptop, lep_top.pt)
-### STUB
     # lep_W = ...                       # same pattern as had_W, but with lepton + neutrino
     # lep_top = ...                     # lep_W + the leptonic b-quark
     # fill_one(h_mleptop, lep_top.mass)
     # fill_one(h_ptleptop, lep_top.pt)
-### END SOLUTION
 
 # six plots: mass (hadronic alone / leptonic alone / both overlaid), then the same for pT
 fig, axs = plt.subplots(2, 3, figsize=(15, 8))
@@ -393,18 +362,8 @@ def analyze(sample):
             continue
         w_1muon += weight
 
-### BEGIN SOLUTION
-        if len(good_jets) < 4:
-            continue
-        w_4jets += weight
-
-        if len(bjets) < 2:
-            continue
-        w_2bjets += weight
-### STUB
         # TODO: require at least 4 good jets (if ...: continue), then add `weight` to w_4jets
         # TODO: require at least 2 b-tagged jets (if ...: continue), then add `weight` to w_2bjets
-### END SOLUTION
 
         fill_one(h["mu_pt_after_cuts"], good_muons[0].pt, weight)
 
@@ -414,30 +373,6 @@ def analyze(sample):
             continue
 
         # === Task 6 happens here: reconstruct the W boson and the top quark ===
-### BEGIN SOLUTION
-        # --- W boson: try every pair of light (non-b-tagged) jets, keep the pair whose
-        # combined mass is closest to the real W mass (80.4 GeV)
-        best_W = None
-        best_W_diff = 1e9
-        for i in range(len(light_jets)):
-            for j in range(i + 1, len(light_jets)):
-                candidate = light_jets[i] + light_jets[j]
-                diff = abs(candidate.mass - M_W)
-                if diff < best_W_diff:
-                    best_W_diff = diff
-                    best_W = candidate
-
-        # --- top quark: combine the W candidate with each b-jet, keep the one closest to
-        # the real top mass (172.5 GeV)
-        best_top = None
-        best_top_diff = 1e9
-        for bjet in bjets:
-            candidate = best_W + bjet
-            diff = abs(candidate.mass - M_TOP)
-            if diff < best_top_diff:
-                best_top_diff = diff
-                best_top = candidate
-### STUB
         # TODO (W boson): two nested for-loops over light_jets (i, then j > i), compute
         #   candidate = light_jets[i] + light_jets[j]
         # and keep whichever pair's mass is closest to M_W in `best_W`.
@@ -449,7 +384,6 @@ def analyze(sample):
         # placeholders so the rest of the notebook still runs before you fill this in:
         best_W = light_jets[0] + light_jets[1]
         best_top = best_W + bjets[0]
-### END SOLUTION
 
         fill_one(h["mW"], best_W.mass, weight)
         fill_one(h["mtop"], best_top.mass, weight)
@@ -499,13 +433,8 @@ for event in tt:
     if is_fiducial:
         fid_weight += event.weight
 
-### BEGIN SOLUTION
-A = fid_weight / total_weight                          # acceptance
-C = results["TTbar"]["final_weighted"] / fid_weight     # efficiency
-### STUB
 A = np.nan   # TODO: acceptance = (weighted fiducial events) / (weighted total events)
 C = np.nan   # TODO: efficiency = (weighted, fully-selected ttbar events) / (weighted fiducial events)
-### END SOLUTION
 
 final_cut = table.index[-1]
 N_data = table.loc[final_cut, "Data"]
@@ -534,37 +463,10 @@ md(r"""
 """)
 
 # --------------------------------------------------------------------------------------------
-def process(source, solutions):
-    out, in_sol, stub_mode = [], False, False
-    for line in source.split("\n"):
-        s = line.strip()
-        if s == "### BEGIN SOLUTION":
-            in_sol, stub_mode, had_stub = True, False, False
-            if not solutions:
-                pending_default = True
-            continue
-        if s == "### STUB":
-            stub_mode, had_stub = True, True
-            continue
-        if s == "### END SOLUTION":
-            if not solutions and not had_stub:
-                out.append("# YOUR CODE HERE")
-            in_sol = False
-            continue
-        if in_sol:
-            keep = (not stub_mode) if solutions else stub_mode
-            if keep:
-                out.append(line)
-        else:
-            out.append(line)
-    return "\n".join(out)
-
-
-def to_nb(solutions):
+def to_nb():
     cells = []
     for kind, text in CELLS:
-        src = process(text, solutions) if kind == "code" else text
-        lines = src.split("\n")
+        lines = text.split("\n")
         source = [l + "\n" for l in lines[:-1]] + [lines[-1]]
         cell = {"cell_type": kind, "metadata": {}, "source": source}
         if kind == "code":
@@ -579,7 +481,6 @@ def to_nb(solutions):
 
 
 if __name__ == "__main__":
-    for solutions, name in [(True, "lab_solutions.ipynb"), (False, "lab_student.ipynb")]:
-        with open(name, "w") as f:
-            json.dump(to_nb(solutions), f, indent=1)
-        print("wrote", name)
+    with open("lab_student.ipynb", "w") as f:
+        json.dump(to_nb(), f, indent=1)
+    print("wrote lab_student.ipynb")
