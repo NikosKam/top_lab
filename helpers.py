@@ -12,8 +12,8 @@ RECO_HISTOGRAMS = {
     "mu_pt":            (30, 0, 300, r"reco. muon $p_T$ [GeV] (after trigger only)"),
     "mu_pt_after_cuts": (30, 0, 300, r"reco. muon $p_T$ [GeV] (after all cuts)"),
     "mW":               (50, 0, 500, r"reconstructed $m_W$ [GeV]"),
-    "mtop":             (20, 100, 300, r"reconstructed $m_{top}$ [GeV]"),
-    "pt_top":           (30, 0, 350, r"reconstructed $p_{T,top}$ [GeV]"),
+    "mtop":             (50, 0, 500, r"reconstructed $m_{top}$ [GeV]"),
+    "pt_top":           (50, 0, 500, r"reconstructed $p_{T,top}$ [GeV]"),
 }
 
 
